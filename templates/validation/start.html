@@ -1,0 +1,414 @@
+{% extends "base.html" %}
+
+{% block title %}CSV Validator - Configure Validation{% endblock %}
+
+{% block head %}
+<style>
+    .table-fixed {
+        table-layout: fixed;
+    }
+    .w-row-num {
+        width: 80px;
+    }
+    .w-column {
+        width: 150px;
+    }
+    .w-rule {
+        width: 150px;
+    }
+    .w-message {
+        width: 300px;
+    }
+    .w-value {
+        width: 150px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white shadow-md rounded-lg overflow-hidden" x-data="{ 
+    isValidating: false,
+    validationComplete: false,
+    validationStatus: 'pending',
+    validationSummary: null,
+    showDetailedResults: false,
+    detailedResults: {
+        results: [],
+        page: 1,
+        totalPages: 1,
+        totalErrors: 0,
+        loading: false
+    }
+}">
+    <div class="p-6">
+        <h1 class="text-2xl font-bold text-gray-800 mb-4">Configure Validation</h1>
+        
+        <div class="mb-6">
+            <div class="flex justify-between items-center">
+                <h2 class="text-lg font-semibold">File: {{ filename }}</h2>
+                <span class="text-gray-500">Total Rows: {{ file_analysis.total_rows }}</span>
+            </div>
+        </div>
+        
+        <!-- Column Matching Section -->
+        <div class="mb-8" x-show="!showDetailedResults">
+            <h3 class="font-medium text-gray-700 mb-3">Column Mapping</h3>
+            <p class="text-gray-600 mb-4">
+                The system has automatically mapped your columns to validation rules based on column names.
+                You can adjust these mappings or leave columns unmapped.
+            </p>
+            
+            <form id="validationForm" action="{{ url_for('validation.execute_validation') }}" method="POST">
+                <input type="hidden" name="session_id" value="{{ session_id }}">
+                <input type="hidden" name="filename" value="{{ filename }}">
+                
+                <div class="overflow-x-auto">
+                    <table class="min-w-full bg-white border">
+                        <thead>
+                            <tr class="bg-gray-100">
+                                <th class="py-3 px-4 border-b text-left">Column Name</th>
+                                <th class="py-3 px-4 border-b text-left">Data Type</th>
+                                <th class="py-3 px-4 border-b text-left">Sample Values</th>
+                                <th class="py-3 px-4 border-b text-left">Rule</th>
+                                <th class="py-3 px-4 border-b text-left">Match Score</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for column in file_analysis.column_details %}
+                            <tr class="border-b hover:bg-gray-50">
+                                <td class="py-3 px-4">{{ column.name }}</td>
+                                <td class="py-3 px-4">{{ column.dtype }}</td>
+                                <td class="py-3 px-4 truncate max-w-xs">
+                                    {{ column.sample_values|join(', ') }}
+                                </td>
+                                <td class="py-3 px-4">
+                                    <select 
+                                        name="column_rule_{{ column.name }}"
+                                        class="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                    >
+                                        <option value="none">-- No Validation --</option>
+                                        {% set matched_rule = column_rule_map.get(column.name, {}).get('rule') %}
+                                        
+                                        {% for rule in rules %}
+                                            <option 
+                                                value="{{ rule.id }}"
+                                                {% if matched_rule and matched_rule.id == rule.id %}selected{% endif %}
+                                            >
+                                                {{ rule.name }}
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                </td>
+                                <td class="py-3 px-4">
+                                    {% if column.name in column_rule_map %}
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium 
+                                            {% if column_rule_map[column.name].match_score >= 90 %}
+                                                bg-green-100 text-green-800
+                                            {% elif column_rule_map[column.name].match_score >= 75 %}
+                                                bg-yellow-100 text-yellow-800
+                                            {% else %}
+                                                bg-gray-100 text-gray-800
+                                            {% endif %}
+                                        ">
+                                            {{ column_rule_map[column.name].match_score }}%
+                                        </span>
+                                    {% else %}
+                                        <span class="text-gray-400">-</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="mt-6 flex justify-between items-center">
+                    <a 
+                        href="{{ url_for('main.index') }}" 
+                        class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                    >
+                        Back
+                    </a>
+                    
+                    <button 
+                        type="button"
+                        @click="startValidation"
+                        class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                        :disabled="isValidating"
+                        :class="{ 'opacity-50 cursor-not-allowed': isValidating }"
+                    >
+                        <span x-show="!isValidating">Start Validation</span>
+                        <span x-show="isValidating" class="flex items-center">
+                            <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Validating...
+                        </span>
+                    </button>
+                </div>
+            </form>
+        </div>
+        
+        <!-- Validation Summary (shown after validation) -->
+        <div x-show="validationComplete" class="mt-8 border-t pt-6">
+            <div x-show="!showDetailedResults">
+                <div class="flex justify-between items-center mb-3">
+                    <h3 class="font-medium text-gray-700">Validation Results</h3>
+                    <button 
+                        @click="showColumnMappings"
+                        x-show="showDetailedResults"
+                        class="text-indigo-600 hover:text-indigo-900 text-sm font-medium"
+                    >
+                        ← Back to Column Mappings
+                    </button>
+                </div>
+                
+                <div class="grid grid-cols-4 gap-4 mb-6">
+                    <div class="bg-gray-50 p-4 rounded-lg shadow-sm">
+                        <p class="text-sm text-gray-500">Total Rows</p>
+                        <p class="text-xl font-bold" x-text="validationSummary.total_rows"></p>
+                    </div>
+                    <div class="bg-green-50 p-4 rounded-lg shadow-sm">
+                        <p class="text-sm text-green-600">Valid Rows</p>
+                        <p class="text-xl font-bold text-green-700" x-text="validationSummary.valid_rows"></p>
+                    </div>
+                    <div class="bg-red-50 p-4 rounded-lg shadow-sm">
+                        <p class="text-sm text-red-600">Invalid Rows</p>
+                        <p class="text-xl font-bold text-red-700" x-text="validationSummary.invalid_rows"></p>
+                    </div>
+                    <div class="bg-indigo-50 p-4 rounded-lg shadow-sm">
+                        <p class="text-sm text-indigo-600">Valid Percentage</p>
+                        <p class="text-xl font-bold text-indigo-700" x-text="Math.round(validationSummary.percent_valid) + '%'"></p>
+                    </div>
+                </div>
+                
+                <div class="flex justify-between">
+                    <button 
+                        @click="showColumnMappings"
+                        class="text-indigo-600 hover:text-indigo-900 text-sm font-medium"
+                    >
+                        ← Back to Column Mappings
+                    </button>
+                    <button 
+                        @click="loadDetailedResults"
+                        class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                    >
+                        View Detailed Results
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Detailed Results Section -->
+            <div x-show="showDetailedResults">
+                <div class="flex justify-between items-center mb-3">
+                    <h3 class="font-medium text-gray-700">Validation Details</h3>
+                    <button 
+                        @click="showDetailedResults = false"
+                        class="text-indigo-600 hover:text-indigo-900 text-sm font-medium"
+                    >
+                        ← Back to Summary
+                    </button>
+                </div>
+                
+                <!-- Loading Indicator -->
+                <div x-show="detailedResults.loading" class="flex justify-center items-center py-10">
+                    <svg class="animate-spin h-10 w-10 text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span class="ml-3 text-lg text-gray-700">Loading validation results...</span>
+                </div>
+                
+                <!-- Results Table -->
+                <div x-show="!detailedResults.loading">
+                    <!-- Empty State -->
+                    <div x-show="detailedResults.totalErrors === 0" class="text-center py-10 bg-gray-50 rounded-lg">
+                        <svg class="mx-auto h-12 w-12 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                        <h3 class="mt-2 text-lg font-medium text-gray-900">All Good!</h3>
+                        <p class="mt-1 text-gray-500">Your data passed all validation rules.</p>
+                    </div>
+                    
+                    <!-- Results Table -->
+                    <div x-show="detailedResults.totalErrors > 0" class="overflow-x-auto">
+                        <table class="min-w-full table-fixed border-collapse">
+                            <thead>
+                                <tr class="bg-gray-100">
+                                    <th class="w-row-num py-3 px-4 border-b text-left">Row #</th>
+                                    <th class="w-column py-3 px-4 border-b text-left">Column</th>
+                                    <th class="w-rule py-3 px-4 border-b text-left">Rule</th>
+                                    <th class="w-message py-3 px-4 border-b text-left">Message</th>
+                                    <th class="w-value py-3 px-4 border-b text-left">Value</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template x-for="result in detailedResults.results" :key="result.id">
+                                    <tr class="border-b hover:bg-gray-50">
+                                        <td class="py-3 px-4 truncate" x-text="result.row_number"></td>
+                                        <td class="py-3 px-4 truncate" x-text="result.column_name"></td>
+                                        <td class="py-3 px-4 truncate" x-text="result.rule_name"></td>
+                                        <td class="py-3 px-4 truncate" x-text="result.message"></td>
+                                        <td class="py-3 px-4 truncate" x-text="result.value || 'Empty'"></td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Pagination -->
+                    <div class="mt-4 flex items-center justify-between">
+                        <div>
+                            <p class="text-sm text-gray-700">
+                                Showing page <span class="font-medium" x-text="detailedResults.page"></span> of
+                                <span class="font-medium" x-text="detailedResults.totalPages"></span>
+                            </p>
+                        </div>
+                        <div class="flex-1 flex justify-end">
+                            <button 
+                                @click="if (detailedResults.page > 1) loadDetailedResults(detailedResults.page - 1)"
+                                class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                :disabled="detailedResults.page <= 1"
+                            >
+                                Previous
+                            </button>
+                            <button
+                                @click="if (detailedResults.page < detailedResults.totalPages) loadDetailedResults(detailedResults.page + 1)"
+                                class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                :disabled="detailedResults.page >= detailedResults.totalPages"
+                            >
+                                Next
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Export options -->
+                    <div class="mt-6 flex justify-end">
+                        <div class="relative" x-data="{ open: false }">
+                            <button 
+                                type="button"
+                                @click="open = !open"
+                                class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                            >
+                                Export Results
+                                <svg class="ml-2 -mr-0.5 h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                                </svg>
+                            </button>
+                            <div 
+                                x-show="open" 
+                                @click.away="open = false"
+                                class="origin-top-right absolute right-0 mt-2 w-36 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-10"
+                            >
+                                <div class="py-1">
+                                    <button @click="exportResults('json')" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">JSON Format</button>
+                                    <button @click="exportResults('csv')" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">CSV Format</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function startValidation() {
+        this.isValidating = true;
+        
+        const form = document.getElementById('validationForm');
+        const formData = new FormData(form);
+        
+        axios.post("{{ url_for('validation.execute_validation') }}", formData)
+            .then(response => {
+                this.validationSummary = response.data.summary;
+                this.validationSummary.session_id = response.data.session_id;
+                this.validationComplete = true;
+                this.isValidating = false;
+            })
+            .catch(error => {
+                console.error('Validation error:', error);
+                alert('Error during validation. Please try again.');
+                this.isValidating = false;
+            });
+    }
+    
+    function loadDetailedResults(page = 1) {
+        this.showDetailedResults = true;
+        this.detailedResults.loading = true;
+        
+        axios.get("{{ url_for('validation.validation_results', session_id=session_id) }}", {
+            params: { page, per_page: 50 },
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(response => {
+            this.detailedResults.results = response.data.items;
+            this.detailedResults.page = response.data.page;
+            this.detailedResults.totalPages = response.data.pages;
+            this.detailedResults.totalErrors = response.data.total;
+            this.detailedResults.loading = false;
+        })
+        .catch(error => {
+            console.error('Error loading results:', error);
+            alert('Error loading validation results');
+            this.detailedResults.loading = false;
+        });
+    }
+    
+    function showColumnMappings() {
+        this.showDetailedResults = false;
+    }
+    
+    function exportResults(format) {
+        if (format === 'json') {
+            window.open("{{ url_for('validation.export_results', session_id=session_id) }}", '_blank');
+        } else if (format === 'csv') {
+            axios.get("{{ url_for('validation.export_results', session_id=session_id) }}")
+                .then(response => {
+                    const data = response.data;
+                    
+                    // Generate CSV from data
+                    let csv = 'Row,Column,Rule,Message,Value\n';
+                    
+                    data.results.forEach(result => {
+                        // Escape values that might contain commas
+                        const escapeCsv = (value) => {
+                            if (value === null || value === undefined) return '';
+                            value = String(value);
+                            if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+                                return `"${value.replace(/"/g, '""')}"`;
+                            }
+                            return value;
+                        };
+                        
+                        csv += [
+                            result.row_number,
+                            escapeCsv(result.column_name),
+                            escapeCsv(result.rule_name),
+                            escapeCsv(result.message),
+                            escapeCsv(result.value)
+                        ].join(',') + '\n';
+                    });
+                    
+                    // Create a download link
+                    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.setAttribute('href', url);
+                    link.setAttribute('download', `validation-results-{{ session_id }}.csv`);
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                })
+                .catch(error => {
+                    console.error('Error exporting CSV:', error);
+                    alert('Error exporting results as CSV');
+                });
+        }
+    }
+</script>
+{% endblock %}

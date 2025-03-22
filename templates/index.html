@@ -1,0 +1,188 @@
+{% extends "base.html" %}
+
+{% block title %}CSV Validator - Home{% endblock %}
+
+{% block content %}
+<div class="bg-white shadow-md rounded-lg overflow-hidden">
+    <div class="p-6">
+        <h1 class="text-2xl font-bold text-gray-800 mb-4">CSV Validation Tool</h1>
+        <p class="text-gray-600 mb-6">
+            Upload your CSV file to validate its contents against predefined rules. 
+            The system will automatically match columns to validation rules and check for data issues.
+        </p>
+
+        <div class="bg-indigo-50 border-l-4 border-indigo-500 text-indigo-700 p-4 mb-6" role="alert">
+            <p class="font-bold">How it works:</p>
+            <ol class="list-decimal pl-5 mt-2">
+                <li>Upload your CSV file</li>
+                <li>Review column matching and select appropriate validation rules</li>
+                <li>Run validation</li>
+                <li>View and export results</li>
+            </ol>
+        </div>
+
+        <div x-data="{ 
+            isUploading: false, 
+            fileName: '',
+            progress: 0,
+            fileSelected: false,
+            showAnalysis: false,
+            analysisData: null
+        }">
+            <form 
+                action="{{ url_for('main.upload_file') }}" 
+                method="POST" 
+                enctype="multipart/form-data"
+                @submit="isUploading = true"
+                class="mb-6"
+            >
+                <div class="mb-4">
+                    <label for="file" class="block text-gray-700 text-sm font-bold mb-2">Select CSV File:</label>
+                    <div class="relative border-2 border-dashed border-gray-300 rounded-lg p-6 bg-gray-50">
+                        <input 
+                            type="file" 
+                            name="file" 
+                            id="file" 
+                            accept=".csv"
+                            @change="fileName = $event.target.files[0].name; fileSelected = true"
+                            class="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        >
+                        <div class="text-center">
+                            <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                                <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H8m36-12h-4m-20-4h.01M20 16h.01" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                            </svg>
+                            <p class="mt-1 text-sm text-gray-600">
+                                <span x-show="!fileSelected">Drag your CSV here or click to browse</span>
+                                <span x-show="fileSelected" x-text="fileName"></span>
+                            </p>
+                            <p class="mt-1 text-xs text-gray-500">CSV files only</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between">
+                    <button 
+                        type="submit" 
+                        class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+                        :disabled="!fileSelected || isUploading"
+                        :class="{ 'opacity-50 cursor-not-allowed': !fileSelected || isUploading }"
+                    >
+                        <span x-show="!isUploading">Upload & Validate</span>
+                        <span x-show="isUploading" class="flex items-center">
+                            <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Processing...
+                        </span>
+                    </button>
+
+                    <button 
+                        type="button" 
+                        @click="analyzeFile()"
+                        class="text-indigo-600 hover:text-indigo-800 font-medium"
+                        :disabled="!fileSelected || isUploading"
+                        :class="{ 'opacity-50 cursor-not-allowed': !fileSelected || isUploading }"
+                    >
+                        Quick Analysis
+                    </button>
+                </div>
+            </form>
+
+            <!-- File Analysis Results -->
+            <div x-show="showAnalysis" class="mt-8 border rounded-lg p-4 bg-white">
+                <h2 class="text-lg font-semibold mb-3">File Analysis</h2>
+                
+                <div class="grid grid-cols-3 gap-4 mb-4">
+                    <div class="bg-gray-50 p-3 rounded">
+                        <p class="text-sm text-gray-500">Total Rows</p>
+                        <p class="text-xl font-bold" x-text="analysisData.total_rows"></p>
+                    </div>
+                    <div class="bg-gray-50 p-3 rounded">
+                        <p class="text-sm text-gray-500">Total Columns</p>
+                        <p class="text-xl font-bold" x-text="analysisData.total_columns"></p>
+                    </div>
+                </div>
+                
+                <h3 class="font-medium mb-2">Column Details</h3>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full bg-white">
+                        <thead>
+                            <tr class="w-full h-10 border-b bg-gray-50">
+                                <th class="text-left pl-4 pr-2">Column Name</th>
+                                <th class="text-left px-2">Data Type</th>
+                                <th class="text-left px-2">Unique Values</th>
+                                <th class="text-left px-2">Missing Values</th>
+                                <th class="text-left px-2">Sample Values</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <template x-for="column in analysisData.column_details" :key="column.name">
+                                <tr class="border-b hover:bg-gray-50">
+                                    <td class="pl-4 pr-2 py-2" x-text="column.name"></td>
+                                    <td class="px-2 py-2" x-text="column.dtype"></td>
+                                    <td class="px-2 py-2" x-text="column.unique_values"></td>
+                                    <td class="px-2 py-2" x-text="column.missing_values"></td>
+                                    <td class="px-2 py-2" x-text="column.sample_values.join(', ')"></td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <h3 class="font-medium mt-4 mb-2">Data Preview</h3>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full bg-white">
+                        <thead>
+                            <tr class="w-full h-10 border-b bg-gray-50">
+                                <template x-for="columnName in analysisData.column_names" :key="columnName">
+                                    <th class="text-left px-2" x-text="columnName"></th>
+                                </template>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <template x-for="(row, rowIndex) in analysisData.preview" :key="rowIndex">
+                                <tr class="border-b hover:bg-gray-50">
+                                    <template x-for="columnName in analysisData.column_names" :key="columnName">
+                                        <td class="px-2 py-2" x-text="row[columnName]"></td>
+                                    </template>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function analyzeFile() {
+        const fileInput = document.getElementById('file');
+        if (!fileInput.files || fileInput.files.length === 0) {
+            return;
+        }
+
+        this.showAnalysis = false;
+        
+        const formData = new FormData();
+        formData.append('file', fileInput.files[0]);
+        
+        axios.post("{{ url_for('main.analyze_file') }}", formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data'
+            }
+        })
+        .then(response => {
+            this.analysisData = response.data;
+            this.showAnalysis = true;
+        })
+        .catch(error => {
+            console.error('Error analyzing file:', error);
+            alert('Error analyzing file. Please try again.');
+        });
+    }
+</script>
+{% endblock %}

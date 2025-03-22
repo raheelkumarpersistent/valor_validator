@@ -1,0 +1,345 @@
+{% extends "base.html" %}
+
+{% block title %}CSV Validator - Validation Rules{% endblock %}
+
+{% block content %}
+<div class="bg-white shadow-md rounded-lg overflow-hidden">
+    <div class="p-6">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-2xl font-bold text-gray-800">Validation Rules</h1>
+            <div class="flex space-x-2">
+                <a 
+                    href="{{ url_for('rules.create_rule') }}" 
+                    class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                >
+                    Create New Rule
+                </a>
+                <a 
+                    href="{{ url_for('rules.ai_rule_generator') }}" 
+                    class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    AI Generator
+                </a>
+                <div x-data="{ open: false }" class="relative">
+                    <button 
+                        type="button"
+                        @click="open = !open"
+                        class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                    >
+                        Import/Export
+                        <svg class="ml-2 -mr-0.5 h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                        </svg>
+                    </button>
+                    <div 
+                        x-show="open" 
+                        @click.away="open = false"
+                        class="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-10"
+                    >
+                        <div class="py-1">
+                            <a href="{{ url_for('rules.export_rules') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Export Rules</a>
+                            <button @click="document.getElementById('import-form').classList.remove('hidden')" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Import Rules</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Import Form (Hidden by default) -->
+        <div id="import-form" class="hidden mb-6 p-4 bg-gray-50 rounded-lg">
+            <h3 class="font-medium text-gray-700 mb-3">Import Rules</h3>
+            <form action="{{ url_for('rules.import_rules') }}" method="POST" enctype="multipart/form-data">
+                <div class="flex items-center space-x-4">
+                    <div class="flex-1">
+                        <label class="block text-sm font-medium text-gray-700">Select JSON File</label>
+                        <input type="file" name="rules_file" class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md">
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <button 
+                            type="submit" 
+                            class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                        >
+                            Import
+                        </button>
+                        <button 
+                            type="button" 
+                            onclick="document.getElementById('import-form').classList.add('hidden')"
+                            class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                        >
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+        
+        <!-- Rules Filtering and Sorting -->
+        <div class="mb-6 flex flex-wrap gap-4">
+            <div class="flex items-center space-x-2">
+                <span class="text-sm font-medium text-gray-700">Show:</span>
+                <div class="inline-flex rounded-md shadow-sm">
+                    <button 
+                        onclick="filterByType('all')"
+                        id="filter-all"
+                        class="px-3 py-1 text-sm font-medium border border-gray-300 rounded-l-md focus:z-10 focus:outline-none bg-indigo-100 text-indigo-800"
+                    >
+                        All
+                    </button>
+                    <button 
+                        onclick="filterByType('system')"
+                        id="filter-system"
+                        class="px-3 py-1 text-sm font-medium border-t border-b border-gray-300 focus:z-10 focus:outline-none bg-white text-gray-700"
+                    >
+                        System
+                    </button>
+                    <button 
+                        onclick="filterByType('custom')"
+                        id="filter-custom"
+                        class="px-3 py-1 text-sm font-medium border border-gray-300 rounded-r-md focus:z-10 focus:outline-none bg-white text-gray-700"
+                    >
+                        Custom
+                    </button>
+                </div>
+            </div>
+            
+            <div class="flex items-center space-x-2">
+                <span class="text-sm font-medium text-gray-700">Status:</span>
+                <div class="inline-flex rounded-md shadow-sm">
+                    <button 
+                        onclick="filterByStatus('all')"
+                        id="status-all"
+                        class="px-3 py-1 text-sm font-medium border border-gray-300 rounded-l-md focus:z-10 focus:outline-none bg-indigo-100 text-indigo-800"
+                    >
+                        All
+                    </button>
+                    <button 
+                        onclick="filterByStatus('active')"
+                        id="status-active"
+                        class="px-3 py-1 text-sm font-medium border-t border-b border-gray-300 focus:z-10 focus:outline-none bg-white text-gray-700"
+                    >
+                        Active
+                    </button>
+                    <button 
+                        onclick="filterByStatus('inactive')"
+                        id="status-inactive"
+                        class="px-3 py-1 text-sm font-medium border border-gray-300 rounded-r-md focus:z-10 focus:outline-none bg-white text-gray-700"
+                    >
+                        Inactive
+                    </button>
+                </div>
+            </div>
+            
+            <div class="flex-1">
+                <div class="relative">
+                    <input 
+                        type="text" 
+                        placeholder="Search rules..." 
+                        class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                        onkeyup="filterRules()"
+                        id="rules-search"
+                    >
+                    <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                        <svg class="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
+                        </svg>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        {% if rules %}
+        <!-- Rules Table -->
+        <div class="overflow-x-auto">
+            <table class="min-w-full border-collapse">
+                <thead>
+                    <tr class="bg-gray-100">
+                        <th class="py-3 px-4 border-b text-left">Name</th>
+                        <th class="py-3 px-4 border-b text-left">Column Pattern</th>
+                        <th class="py-3 px-4 border-b text-left">Rule Type</th>
+                        <th class="py-3 px-4 border-b text-left">Status</th>
+                        <th class="py-3 px-4 border-b text-left">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for rule in rules %}
+                    <tr class="border-b hover:bg-gray-50 rule-row" 
+                        data-is-system="{{ rule.is_system|lower }}"
+                        data-is-active="{{ rule.is_active|lower }}">
+                        <td class="py-3 px-4">
+                            <a href="{{ url_for('rules.view_rule', rule_id=rule.id) }}" class="font-medium text-indigo-600 hover:text-indigo-900">
+                                {{ rule.name }}
+                            </a>
+                            {% if rule.is_system %}
+                            <span class="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                System
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td class="py-3 px-4">{{ rule.column_pattern }}</td>
+                        <td class="py-3 px-4">{{ rule.rule_type }}</td>
+                        <td class="py-3 px-4">
+                            {% if rule.is_active %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                Active
+                            </span>
+                            {% else %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                Inactive
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td class="py-3 px-4">
+                            <div class="flex items-center space-x-2">
+                                <a href="{{ url_for('rules.view_rule', rule_id=rule.id) }}" class="text-indigo-600 hover:text-indigo-900">
+                                    View
+                                </a>
+                                {% if not rule.is_system %}
+                                <a href="{{ url_for('rules.edit_rule', rule_id=rule.id) }}" class="text-indigo-600 hover:text-indigo-900">
+                                    Edit
+                                </a>
+                                <form action="{{ url_for('rules.delete_rule', rule_id=rule.id) }}" method="POST" class="inline">
+                                    <button type="submit" onclick="return confirm('Are you sure you want to delete this rule?')" class="text-red-600 hover:text-red-900">
+                                        Delete
+                                    </button>
+                                </form>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <!-- No Rules State -->
+        <div class="text-center py-10 bg-gray-50 rounded-lg">
+            <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+            </svg>
+            <h3 class="mt-2 text-lg font-medium text-gray-900">No validation rules found</h3>
+            <p class="mt-1 text-gray-500">Get started by creating your first validation rule.</p>
+            <div class="mt-6">
+                <a 
+                    href="{{ url_for('rules.create_rule') }}" 
+                    class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                >
+                    Create First Rule
+                </a>
+            </div>
+        </div>
+        {% endif %}
+        
+        <!-- Empty State for Filtered Results (Hidden by default) -->
+        <div id="empty-rules" class="hidden text-center py-10 mt-4 bg-gray-50 rounded-lg">
+            <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+            </svg>
+            <h3 class="mt-2 text-lg font-medium text-gray-900">No rules found</h3>
+            <p class="mt-1 text-gray-500" id="empty-message">No rules match your current filters.</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let currentTypeFilter = 'all';
+    let currentStatusFilter = 'all';
+    
+    function filterByType(type) {
+        // Update active button styles
+        document.getElementById('filter-all').classList.remove('bg-indigo-100', 'text-indigo-800');
+        document.getElementById('filter-all').classList.add('bg-white', 'text-gray-700');
+        document.getElementById('filter-system').classList.remove('bg-indigo-100', 'text-indigo-800');
+        document.getElementById('filter-system').classList.add('bg-white', 'text-gray-700');
+        document.getElementById('filter-custom').classList.remove('bg-indigo-100', 'text-indigo-800');
+        document.getElementById('filter-custom').classList.add('bg-white', 'text-gray-700');
+        
+        // Set active button
+        document.getElementById('filter-' + type).classList.remove('bg-white', 'text-gray-700');
+        document.getElementById('filter-' + type).classList.add('bg-indigo-100', 'text-indigo-800');
+        
+        currentTypeFilter = type;
+        filterRules();
+    }
+    
+    function filterByStatus(status) {
+        // Update active button styles
+        document.getElementById('status-all').classList.remove('bg-indigo-100', 'text-indigo-800');
+        document.getElementById('status-all').classList.add('bg-white', 'text-gray-700');
+        document.getElementById('status-active').classList.remove('bg-indigo-100', 'text-indigo-800');
+        document.getElementById('status-active').classList.add('bg-white', 'text-gray-700');
+        document.getElementById('status-inactive').classList.remove('bg-indigo-100', 'text-indigo-800');
+        document.getElementById('status-inactive').classList.add('bg-white', 'text-gray-700');
+        
+        // Set active button
+        document.getElementById('status-' + status).classList.remove('bg-white', 'text-gray-700');
+        document.getElementById('status-' + status).classList.add('bg-indigo-100', 'text-indigo-800');
+        
+        currentStatusFilter = status;
+        filterRules();
+    }
+    
+    function filterRules() {
+        const searchInput = document.getElementById('rules-search');
+        const searchTerm = searchInput.value.toLowerCase();
+        
+        const rows = document.querySelectorAll('tr.rule-row');
+        let visibleCount = 0;
+        
+        rows.forEach(row => {
+            const name = row.querySelector('td:first-child').textContent.toLowerCase();
+            const pattern = row.querySelector('td:nth-child(2)').textContent.toLowerCase();
+            const type = row.querySelector('td:nth-child(3)').textContent.toLowerCase();
+            
+            const isSystem = row.dataset.isSystem === 'true';
+            const isActive = row.dataset.isActive === 'true';
+            
+            let visible = true;
+            
+            // Check text search
+            if (searchTerm) {
+                if (!name.includes(searchTerm) && !pattern.includes(searchTerm) && !type.includes(searchTerm)) {
+                    visible = false;
+                }
+            }
+            
+            // Check type filter
+            if (currentTypeFilter === 'system' && !isSystem) {
+                visible = false;
+            } else if (currentTypeFilter === 'custom' && isSystem) {
+                visible = false;
+            }
+            
+            // Check status filter
+            if (currentStatusFilter === 'active' && !isActive) {
+                visible = false;
+            } else if (currentStatusFilter === 'inactive' && isActive) {
+                visible = false;
+            }
+            
+            row.style.display = visible ? '' : 'none';
+            if (visible) visibleCount++;
+        });
+        
+        // Show empty state if no rules are visible
+        const emptyState = document.getElementById('empty-rules');
+        const emptyMessage = document.getElementById('empty-message');
+        
+        if (visibleCount === 0 && rows.length > 0) {
+            emptyState.classList.remove('hidden');
+            
+            if (searchTerm) {
+                emptyMessage.textContent = `No rules match your search "${searchTerm}".`;
+            } else {
+                emptyMessage.textContent = 'No rules match your current filters.';
+            }
+        } else {
+            emptyState.classList.add('hidden');
+        }
+    }
+</script>
+{% endblock %}

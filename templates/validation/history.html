@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+
+{% block title %}CSV Validator - Validation History{% endblock %}
+
+{% block content %}
+<div class="bg-white shadow-md rounded-lg overflow-hidden">
+    <div class="p-6">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-2xl font-bold text-gray-800">Validation History</h1>
+            <a 
+                href="{{ url_for('main.index') }}" 
+                class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            >
+                New Validation
+            </a>
+        </div>
+        
+        <div x-data="{ searchQuery: '' }">
+            <!-- Search and Filter -->
+            <div class="mb-6">
+                <div class="relative">
+                    <input 
+                        type="text" 
+                        placeholder="Search by filename..." 
+                        class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                        x-model="searchQuery"
+                    >
+                    <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                        <svg class="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
+                        </svg>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Sessions Table -->
+            {% if sessions %}
+            <div class="overflow-x-auto">
+                <table class="min-w-full border-collapse">
+                    <thead>
+                        <tr class="bg-gray-100">
+                            <th class="py-3 px-4 border-b text-left">ID</th>
+                            <th class="py-3 px-4 border-b text-left">Filename</th>
+                            <th class="py-3 px-4 border-b text-left">Status</th>
+                            <th class="py-3 px-4 border-b text-left">Date</th>
+                            <th class="py-3 px-4 border-b text-left">Results</th>
+                            <th class="py-3 px-4 border-b text-left">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for session in sessions %}
+                        <tr class="border-b hover:bg-gray-50 session-row" x-show="!searchQuery || '{{ session.filename }}'.toLowerCase().includes(searchQuery.toLowerCase())">
+                            <td class="py-3 px-4">{{ session.id }}</td>
+                            <td class="py-3 px-4">{{ session.filename }}</td>
+                            <td class="py-3 px-4">
+                                {% if session.status == 'completed' %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                    Completed
+                                </span>
+                                {% elif session.status == 'failed' %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                    Failed
+                                </span>
+                                {% elif session.status == 'running' %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                    Running
+                                </span>
+                                {% else %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                    {{ session.status|capitalize }}
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td class="py-3 px-4">{{ session.started_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                            <td class="py-3 px-4">
+                                {% if session.status == 'completed' %}
+                                <div class="text-sm">
+                                    <div class="flex items-center">
+                                        <span class="text-green-600 font-medium">{{ session.valid_rows }}</span>
+                                        <span class="mx-1 text-gray-500">/</span>
+                                        <span class="text-gray-600">{{ session.total_rows }}</span>
+                                        <span class="ml-1 text-gray-500">valid</span>
+                                    </div>
+                                    <div class="text-gray-500">
+                                        {{ "%.1f"|format(session.valid_rows / session.total_rows * 100 if session.total_rows else 0) }}% pass rate
+                                    </div>
+                                </div>
+                                {% else %}
+                                <span class="text-gray-500">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="py-3 px-4">
+                                <div class="flex items-center space-x-2">
+                                    {% if session.status == 'completed' %}
+                                    <a href="{{ url_for('validation.validation_results', session_id=session.id) }}" class="text-indigo-600 hover:text-indigo-900">
+                                        View Results
+                                    </a>
+                                    <a href="{{ url_for('validation.export_results', session_id=session.id) }}" class="text-indigo-600 hover:text-indigo-900">
+                                        Export
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Empty search results -->
+            <div 
+                class="hidden text-center py-10 bg-gray-50 rounded-lg mt-4"
+                x-bind:class="{ 'hidden': !searchQuery || document.querySelectorAll('tr.session-row:not([style*=\'display: none\'])').length > 0 }"
+            >
+                <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                </svg>
+                <h3 class="mt-2 text-lg font-medium text-gray-900">No matching validation sessions</h3>
+                <p class="mt-1 text-gray-500">Try adjusting your search query.</p>
+            </div>
+            {% else %}
+            <!-- No sessions -->
+            <div class="text-center py-10 bg-gray-50 rounded-lg">
+                <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                </svg>
+                <h3 class="mt-2 text-lg font-medium text-gray-900">No validation sessions yet</h3>
+                <p class="mt-1 text-gray-500">Start by uploading a CSV file to validate.</p>
+                <div class="mt-6">
+                    <a 
+                        href="{{ url_for('main.index') }}" 
+                        class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                    >
+                        Upload CSV
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

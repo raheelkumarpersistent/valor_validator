@@ -1,0 +1,269 @@
+{% extends "base.html" %}
+
+{% block title %}CSV Validator - Validation Results{% endblock %}
+
+{% block head %}
+<style>
+    .table-fixed {
+        table-layout: fixed;
+    }
+    .w-row-num {
+        width: 80px;
+    }
+    .w-column {
+        width: 150px;
+    }
+    .w-rule {
+        width: 150px;
+    }
+    .w-message {
+        width: 300px;
+    }
+    .w-value {
+        width: 150px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="bg-white shadow-md rounded-lg overflow-hidden" x-data="resultsData">
+    <div class="p-6">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-2xl font-bold text-gray-800">Validation Results</h1>
+            <div class="flex space-x-2">
+                <a 
+                    href="{{ url_for('main.index') }}" 
+                    class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                >
+                    New Validation
+                </a>
+                <div class="relative" x-data="{ open: false }">
+                    <button 
+                        type="button"
+                        @click="open = !open"
+                        class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                    >
+                        Export
+                        <svg class="ml-2 -mr-0.5 h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                        </svg>
+                    </button>
+                    <div 
+                        x-show="open" 
+                        @click.away="open = false"
+                        class="origin-top-right absolute right-0 mt-2 w-36 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none"
+                    >
+                        <div class="py-1">
+                            <a href="{{ url_for('validation.export_results', session_id=session.id) }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">JSON Format</a>
+                            <button @click="exportCSV" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">CSV Format</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Summary Information -->
+        <div class="mb-8">
+            <div class="bg-gray-50 p-4 rounded-lg">
+                <h2 class="text-lg font-semibold mb-3">Validation Summary</h2>
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div class="bg-white p-3 rounded shadow-sm">
+                        <p class="text-sm text-gray-500">File</p>
+                        <p class="font-medium">{{ session.filename }}</p>
+                    </div>
+                    <div class="bg-white p-3 rounded shadow-sm">
+                        <p class="text-sm text-gray-500">Total Rows</p>
+                        <p class="font-medium">{{ session.total_rows }}</p>
+                    </div>
+                    <div class="bg-white p-3 rounded shadow-sm flex items-center">
+                        <div class="flex-1">
+                            <p class="text-sm text-gray-500">Valid Rows</p>
+                            <p class="font-medium text-green-600">{{ session.valid_rows }}</p>
+                        </div>
+                        <div class="w-12 h-12 rounded-full flex items-center justify-center">
+                            <span class="text-sm font-medium">
+                                {{ "%.1f"|format(session.valid_rows / session.total_rows * 100) }}%
+                            </span>
+                        </div>
+                    </div>
+                    <div class="bg-white p-3 rounded shadow-sm flex items-center">
+                        <div class="flex-1">
+                            <p class="text-sm text-gray-500">Invalid Rows</p>
+                            <p class="font-medium text-red-600">{{ session.invalid_rows }}</p>
+                        </div>
+                        <div class="w-12 h-12 rounded-full flex items-center justify-center">
+                            <span class="text-sm font-medium">
+                                {{ "%.1f"|format(session.invalid_rows / session.total_rows * 100) }}%
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Loading Indicator -->
+        <div x-show="loading" class="flex justify-center items-center py-10">
+            <svg class="animate-spin h-10 w-10 text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <span class="ml-3 text-lg text-gray-700">Loading validation results...</span>
+        </div>
+        
+        <!-- Results Table -->
+        <div x-show="!loading" class="mt-6">
+            <h3 class="font-medium text-gray-700 mb-3">Validation Errors</h3>
+            
+            <!-- Empty State -->
+            <div x-show="totalErrors === 0" class="text-center py-10 bg-gray-50 rounded-lg">
+                <svg class="mx-auto h-12 w-12 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                </svg>
+                <h3 class="mt-2 text-lg font-medium text-gray-900">All Good!</h3>
+                <p class="mt-1 text-gray-500">Your data passed all validation rules.</p>
+            </div>
+            
+            <!-- Results Table -->
+            <div x-show="totalErrors > 0" class="overflow-x-auto">
+                <table class="min-w-full table-fixed border-collapse">
+                    <thead>
+                        <tr class="bg-gray-100">
+                            <th class="w-row-num py-3 px-4 border-b text-left">Row #</th>
+                            <th class="w-column py-3 px-4 border-b text-left">Column</th>
+                            <th class="w-rule py-3 px-4 border-b text-left">Rule</th>
+                            <th class="w-message py-3 px-4 border-b text-left">Message</th>
+                            <th class="w-value py-3 px-4 border-b text-left">Value</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="result in results" :key="result.id">
+                            <tr class="border-b hover:bg-gray-50">
+                                <td class="py-3 px-4 truncate" x-text="result.row_number"></td>
+                                <td class="py-3 px-4 truncate" x-text="result.column_name"></td>
+                                <td class="py-3 px-4 truncate" x-text="result.rule_name"></td>
+                                <td class="py-3 px-4 truncate" x-text="result.message"></td>
+                                <td class="py-3 px-4 truncate" x-text="result.value || 'Empty'"></td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Pagination -->
+            <div class="mt-4 flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-700">
+                        Showing page <span class="font-medium" x-text="page"></span> of
+                        <span class="font-medium" x-text="totalPages"></span>
+                    </p>
+                </div>
+                <div class="flex-1 flex justify-end">
+                    <button 
+                        @click="if (page > 1) loadResults(page - 1)"
+                        class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        :disabled="page <= 1"
+                    >
+                        Previous
+                    </button>
+                    <button
+                        @click="if (page < totalPages) loadResults(page + 1)"
+                        class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        :disabled="page >= totalPages"
+                    >
+                        Next
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('alpine:init', () => {
+        Alpine.data('resultsData', () => ({
+            results: [],
+            page: 1,
+            totalPages: 1,
+            totalErrors: 0,
+            loading: true,
+            exportFormat: 'json',
+            
+            init() {
+                this.loadResults(1);
+            },
+            
+            loadResults(page = 1) {
+                this.loading = true;
+                
+                axios.get("{{ url_for('validation.validation_results', session_id=session.id) }}", {
+                    params: { page, per_page: 50 },
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                })
+                .then(response => {
+                    this.results = response.data.items;
+                    this.page = response.data.page;
+                    this.totalPages = response.data.pages;
+                    this.totalErrors = response.data.total;
+                    this.loading = false;
+                })
+                .catch(error => {
+                    console.error('Error loading results:', error);
+                    alert('Error loading validation results');
+                    this.loading = false;
+                });
+            },
+            
+            exportCSV() {
+                try {
+                    axios.get("{{ url_for('validation.export_results', session_id=session.id) }}")
+                        .then(response => {
+                            const data = response.data;
+                            
+                            // Generate CSV from data
+                            let csv = 'Row,Column,Rule,Message,Value\n';
+                            
+                            data.results.forEach(result => {
+                                // Escape values that might contain commas
+                                const escapeCsv = (value) => {
+                                    if (value === null || value === undefined) return '';
+                                    value = String(value);
+                                    if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+                                        return `"${value.replace(/"/g, '""')}"`;
+                                    }
+                                    return value;
+                                };
+                                
+                                csv += [
+                                    result.row_number,
+                                    escapeCsv(result.column_name),
+                                    escapeCsv(result.rule_name),
+                                    escapeCsv(result.message),
+                                    escapeCsv(result.value)
+                                ].join(',') + '\n';
+                            });
+                            
+                            // Create a download link
+                            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                            const url = URL.createObjectURL(blob);
+                            const link = document.createElement('a');
+                            link.setAttribute('href', url);
+                            link.setAttribute('download', `validation-results-{{ session.id }}.csv`);
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                        })
+                        .catch(error => {
+                            console.error('Error exporting CSV:', error);
+                            alert('Error exporting results as CSV');
+                        });
+                } catch (error) {
+                    console.error('Error exporting CSV:', error);
+                    alert('Error exporting results as CSV');
+                }
+            }
+        }));
+    });
+</script>
+{% endblock %}

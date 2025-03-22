@@ -1,0 +1,306 @@
+{% extends "base.html" %}
+
+{% block title %}CSV Validator - Create Rule{% endblock %}
+
+{% block content %}
+<div class="bg-white shadow-md rounded-lg overflow-hidden">
+    <div class="p-6">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-2xl font-bold text-gray-800">Create Validation Rule</h1>
+            <a 
+                href="{{ url_for('rules.list_rules') }}" 
+                class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            >
+                Back to Rules
+            </a>
+        </div>
+        
+        <form action="{{ url_for('rules.create_rule') }}" method="POST" class="space-y-6" x-data="{ ruleType: 'data_type' }">
+            <!-- Basic Rule Information -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label for="name" class="block text-sm font-medium text-gray-700">Rule Name</label>
+                    <input 
+                        type="text" 
+                        name="name" 
+                        id="name" 
+                        required
+                        class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                    >
+                </div>
+                
+                <div>
+                    <label for="column_pattern" class="block text-sm font-medium text-gray-700">Column Pattern</label>
+                    <input 
+                        type="text" 
+                        name="column_pattern" 
+                        id="column_pattern" 
+                        required
+                        class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                    >
+                    <p class="mt-1 text-xs text-gray-500">Pattern used for fuzzy matching with CSV columns</p>
+                </div>
+                
+                <div>
+                    <label for="rule_type" class="block text-sm font-medium text-gray-700">Rule Type</label>
+                    <select 
+                        name="rule_type" 
+                        id="rule_type" 
+                        required
+                        x-model="ruleType"
+                        class="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    >
+                        <option value="data_type">Data Type Validation</option>
+                        <option value="range">Range Validation</option>
+                        <option value="pattern">Pattern Matching</option>
+                        <option value="required">Required Field</option>
+                        <option value="enumeration">Enumeration</option>
+                        <option value="date_format">Date Format</option>
+                        <option value="length">String Length</option>
+                        <option value="cross_field">Cross-Field Validation</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label for="priority" class="block text-sm font-medium text-gray-700">Priority</label>
+                    <input 
+                        type="number" 
+                        name="priority" 
+                        id="priority" 
+                        value="100"
+                        min="1"
+                        max="1000"
+                        class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                    >
+                    <p class="mt-1 text-xs text-gray-500">Higher priority rules are matched first (default: 100)</p>
+                </div>
+                
+                <div class="md:col-span-2">
+                    <label for="description" class="block text-sm font-medium text-gray-700">Description</label>
+                    <textarea 
+                        name="description" 
+                        id="description" 
+                        rows="3"
+                        class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                    ></textarea>
+                </div>
+                
+                <div class="md:col-span-2">
+                    <div class="flex items-center">
+                        <input 
+                            type="checkbox" 
+                            name="is_active" 
+                            id="is_active" 
+                            checked
+                            class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                        >
+                        <label for="is_active" class="ml-2 block text-sm text-gray-700">
+                            Active
+                        </label>
+                        <div class="ml-4">
+                            <input 
+                                type="checkbox" 
+                                name="allow_null" 
+                                id="allow_null" 
+                                checked
+                                class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                            >
+                            <label for="allow_null" class="ml-2 block text-sm text-gray-700">
+                                Allow Null/Empty Values
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Rule Type Specific Parameters -->
+            <div class="border-t border-gray-200 pt-4">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">Validation Parameters</h3>
+                
+                <!-- Data Type Parameters -->
+                <div x-show="ruleType === 'data_type'" class="space-y-4">
+                    <div>
+                        <label for="data_type" class="block text-sm font-medium text-gray-700">Data Type</label>
+                        <select 
+                            name="data_type" 
+                            id="data_type" 
+                            class="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                        >
+                            <option value="integer">Integer</option>
+                            <option value="float">Float/Decimal</option>
+                            <option value="string">String</option>
+                            <option value="date">Date</option>
+                            <option value="boolean">Boolean</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- Range Parameters -->
+                <div x-show="ruleType === 'range'" class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="min" class="block text-sm font-medium text-gray-700">Minimum Value</label>
+                        <input 
+                            type="number" 
+                            name="min" 
+                            id="min" 
+                            step="any"
+                            class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                        >
+                        <p class="mt-1 text-xs text-gray-500">Leave blank for no minimum</p>
+                    </div>
+                    <div>
+                        <label for="max" class="block text-sm font-medium text-gray-700">Maximum Value</label>
+                        <input 
+                            type="number" 
+                            name="max" 
+                            id="max" 
+                            step="any"
+                            class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                        >
+                        <p class="mt-1 text-xs text-gray-500">Leave blank for no maximum</p>
+                    </div>
+                </div>
+                
+                <!-- Pattern Parameters -->
+                <div x-show="ruleType === 'pattern'" class="space-y-4">
+                    <div>
+                        <label for="pattern" class="block text-sm font-medium text-gray-700">Regex Pattern</label>
+                        <input 
+                            type="text" 
+                            name="pattern" 
+                            id="pattern" 
+                            placeholder="e.g. ^[a-zA-Z0-9]+$"
+                            class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                        >
+                    </div>
+                    <div>
+                        <label for="error_message" class="block text-sm font-medium text-gray-700">Custom Error Message</label>
+                        <input 
+                            type="text" 
+                            name="error_message" 
+                            id="error_message" 
+                            placeholder="e.g. Invalid format"
+                            class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                        >
+                    </div>
+                </div>
+                
+                <!-- Enumeration Parameters -->
+                <div x-show="ruleType === 'enumeration'" class="space-y-4">
+                    <div>
+                        <label for="values" class="block text-sm font-medium text-gray-700">Allowed Values</label>
+                        <textarea 
+                            name="values" 
+                            id="values" 
+                            rows="3"
+                            placeholder="Enter comma-separated values"
+                            class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                        ></textarea>
+                        <p class="mt-1 text-xs text-gray-500">Enter values separated by commas</p>
+                    </div>
+                    <div>
+                        <div class="flex items-center">
+                            <input 
+                                type="checkbox" 
+                                name="case_insensitive" 
+                                id="case_insensitive" 
+                                class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                            >
+                            <label for="case_insensitive" class="ml-2 block text-sm text-gray-700">
+                                Case Insensitive
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Date Format Parameters -->
+                <div x-show="ruleType === 'date_format'" class="space-y-4">
+                    <div>
+                        <label for="date_format" class="block text-sm font-medium text-gray-700">Date Format</label>
+                        <input 
+                            type="text" 
+                            name="date_format" 
+                            id="date_format" 
+                            placeholder="e.g. %Y-%m-%d"
+                            class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                        >
+                        <p class="mt-1 text-xs text-gray-500">Use Python date format codes: %Y (year), %m (month), %d (day), etc.</p>
+                    </div>
+                </div>
+                
+                <!-- String Length Parameters -->
+                <div x-show="ruleType === 'length'" class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="min_length" class="block text-sm font-medium text-gray-700">Minimum Length</label>
+                        <input 
+                            type="number" 
+                            name="min_length" 
+                            id="min_length" 
+                            min="0"
+                            class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                        >
+                        <p class="mt-1 text-xs text-gray-500">Leave blank for no minimum</p>
+                    </div>
+                    <div>
+                        <label for="max_length" class="block text-sm font-medium text-gray-700">Maximum Length</label>
+                        <input 
+                            type="number" 
+                            name="max_length" 
+                            id="max_length" 
+                            min="1"
+                            class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                        >
+                        <p class="mt-1 text-xs text-gray-500">Leave blank for no maximum</p>
+                    </div>
+                </div>
+                
+                <!-- Cross-Field Parameters -->
+                <div x-show="ruleType === 'cross_field'" class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="compare_with" class="block text-sm font-medium text-gray-700">Compare With Column</label>
+                        <input 
+                            type="text" 
+                            name="compare_with" 
+                            id="compare_with" 
+                            placeholder="Column name"
+                            class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                        >
+                    </div>
+                    <div>
+                        <label for="operator" class="block text-sm font-medium text-gray-700">Comparison Operator</label>
+                        <select 
+                            name="operator" 
+                            id="operator" 
+                            class="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                        >
+                            <option value="eq">Equal to (=)</option>
+                            <option value="ne">Not equal to (≠)</option>
+                            <option value="gt">Greater than (>)</option>
+                            <option value="gte">Greater than or equal to (≥)</option>
+                            <option value="lt">Less than (<)</option>
+                            <option value="lte">Less than or equal to (≤)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="pt-5">
+                <div class="flex justify-end">
+                    <a
+                        href="{{ url_for('rules.list_rules') }}"
+                        class="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                    >
+                        Cancel
+                    </a>
+                    <button
+                        type="submit"
+                        class="ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                    >
+                        Create Rule
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
