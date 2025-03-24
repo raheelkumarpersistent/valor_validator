@@ -1,108 +1,177 @@
-# CSV Validator Web Application
+# CSV Validator
 
-A Flask-based web application for validating CSV files against predefined and custom validation rules.
+A powerful Flask-based web application for validating CSV files against predefined and custom validation rules with an AI-powered rule generator.
 
 ## Features
 
-- **CSV Upload & Analysis**: Upload CSV files and get instant analysis of column structure and data samples
-- **Intelligent Column Matching**: Automatically match CSV columns to validation rules using fuzzy matching
-- **Comprehensive Validation Rules**: Support for multiple validation types:
-  - Data type validation (string, integer, float, date, etc.)
-  - Range validation (min/max values)
+### CSV Upload & Analysis
+- Upload and analyze CSV files with instant column detection
+- Automatic data type inference and value sampling
+- Support for large files with batch processing
+
+### Intelligent Validation
+- **Automatic Column Matching**: Uses fuzzy matching algorithms to map columns to validation rules
+- **Comprehensive Rule Types**:
+  - Data type validation (string, integer, float, date, boolean)
+  - Range validation (min/max values for numbers and dates)
   - Pattern matching (regex validation)
   - Required fields validation
   - Enumeration validation (allowed values)
   - Date format validation
   - String length validation
-  - Cross-field validation
-- **Custom Rules**: Create, edit, and manage your own validation rules
-- **Interactive Results**: View validation results with clear error highlighting
-- **Export Options**: Export validation results in JSON or CSV format
-- **Rule Management**: Import/export validation rules for reuse across projects
+  - Cross-field validation (relationships between columns)
+- Real-time validation with progress indicators
+
+### Rule Management
+- Create, edit, and manage validation rules
+- System rules for common validation scenarios
+- Custom rules for specific business needs
+- Import/export rule sets for reuse across projects
+
+### AI-Powered Rule Generation
+- Generate validation rules from plain text descriptions
+- Leverages Amazon Nova Pro API for natural language understanding
+- Convert descriptions like "Email addresses must be valid" into structured rules
+
+### Results & Reporting
+- Interactive results display with detailed error information
+- Row and column-level validation feedback
+- Export validation results in JSON or CSV format
+- Validation history tracking
+
+### User Interface
+- Clean, responsive UI using Tailwind CSS
+- Interactive components with Alpine.js
+- Asynchronous processing with AJAX
 
 ## Technical Stack
 
 - **Backend**: Flask 3.0+
-- **Database**: SQLite (SQLAlchemy ORM)
-- **Frontend**: Tailwind CSS, Alpine.js
-- **CSV Processing**: Pandas
-- **Fuzzy Matching**: RapidFuzz
+- **Database**: SQLite (via SQLAlchemy ORM)
+- **Frontend**: 
+  - Tailwind CSS for styling
+  - Alpine.js for client-side interactivity
+  - Axios for AJAX requests
+- **Data Processing**: 
+  - Pandas for CSV handling
+  - RapidFuzz for column name matching
+- **External Services**:
+  - Amazon Nova Pro API for AI rule generation
 
 ## Installation
 
-1. Clone the repository
+### Prerequisites
+- Python 3.12+
+- pip (Python package manager)
+- Git (optional)
+
+### Setup
+
+1. Clone the repository (or download the source code):
 ```bash
 git clone https://github.com/yourusername/csv-validator.git
 cd csv-validator
 ```
 
-2. Create a virtual environment
+2. Create a virtual environment:
 ```bash
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
 ```
 
-3. Install dependencies
+3. Activate the virtual environment:
+```bash
+# On Windows
+venv\Scripts\activate
+
+# On macOS/Linux
+source venv/bin/activate
+```
+
+4. Install dependencies:
 ```bash
 pip install -r requirements.txt
 ```
 
-4. Initialize the database
+5. Create necessary directories:
 ```bash
-flask db init
-flask db migrate -m "Initial migration"
-flask db upgrade
+mkdir -p uploads instance
 ```
 
-5. Run the application
+### Configuration
+
+The application uses a configuration file (`config.py`) that you can modify for different environments:
+
+- `DevelopmentConfig`: For local development
+- `ProductionConfig`: For production deployment
+- `TestingConfig`: For running tests
+
+You can set the environment by modifying the default configuration in `app.py` or by setting the environment variable:
+
+```bash
+# On Windows
+set FLASK_CONFIG=development
+
+# On macOS/Linux
+export FLASK_CONFIG=development
+```
+
+## Running the Application
+
+1. Make sure your virtual environment is activated
+2. Start the Flask application:
 ```bash
 python app.py
 ```
+3. Access the application at `http://localhost:5000`
 
-6. Access the application at `http://localhost:5000`
-
-## Project Structure
-
-- `app.py`: Main application entry point
-- `config.py`: Configuration settings
-- `models/`: Database models
-- `services/`: Business logic services
-- `controllers/`: Request handlers
-- `templates/`: Jinja2 templates
-- `static/`: Static assets
-
-## Usage
+## Usage Guide
 
 ### 1. Upload a CSV File
-
-Upload your CSV file from the home page to start the validation process.
+- From the home page, upload your CSV file
+- The application will analyze the file structure and show a preview
 
 ### 2. Configure Validation Rules
+- The system will automatically match columns to appropriate rules
+- You can adjust the rule mappings manually
 
-Once uploaded, you'll see the automatic column mapping. You can:
-- Accept the automatic mappings
-- Manually select validation rules for each column
-- Skip validation for certain columns
-
-### 3. Execute Validation
-
-Click "Start Validation" to process the file against the selected rules.
+### 3. Run Validation
+- Click "Start Validation" to process the file
+- Monitor progress with the real-time indicator
 
 ### 4. Review Results
-
-View the validation results showing:
-- Summary statistics (valid/invalid rows)
-- Detailed error information
-- Export options for sharing results
+- View validation summary showing valid and invalid rows
+- Explore detailed error reports
+- Export results in desired format
 
 ### 5. Manage Rules
-
-Navigate to the Rules section to:
-- Create new validation rules
-- Edit existing rules
+- Navigate to the Rules section to view existing rules
+- Create new rules manually or using the AI Generator
 - Import/export rule sets
 
+### 6. AI Rule Generation
+- Go to the AI Generator page
+- Enter your Amazon Nova Pro API key
+- Describe validation rules in plain text
+- Generate and save structured rules
+
 ## Development
+
+### Project Structure
+```
+csv_validator/
+├── app.py                # Main Flask application entry point
+├── config.py             # Configuration settings
+├── extensions.py         # Flask extensions
+├── requirements.txt      # Package dependencies
+├── README.md             # This file
+├── instance/             # Instance-specific data (SQLite DB)
+├── uploads/              # Uploaded CSV files
+├── models/               # Database models
+├── services/             # Business logic services
+├── controllers/          # Request handlers
+├── static/               # Static assets
+└── templates/            # Jinja2 templates
+```
 
 ### Adding New Validation Types
 
@@ -119,4 +188,28 @@ For custom CSV processing, extend the `CSVProcessor` class in `services/csv_proc
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License - see below for details:
+
+```
+MIT License
+
+Copyright (c) 2025 CSV Validator
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
